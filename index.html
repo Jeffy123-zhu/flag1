@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTF通用字符串解码工具</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 引入 Inter 字体和自定义样式 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+            color: #1e293b;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen flex items-center justify-center">
+
+    <div id="app" class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 sm:p-10 border border-gray-100">
+        <h1 class="text-3xl sm:text-4xl font-bold text-center text-indigo-700 mb-6">
+            CTF 通用字符串解码工具
+        </h1>
+        <p class="text-center text-gray-500 mb-8">
+            输入需要解码的字符串，选择解码方式并查看结果。
+        </p>
+
+        <!-- 输入区域 -->
+        <div class="mb-6">
+            <label for="inputString" class="block text-lg font-medium text-gray-700 mb-2">输入字符串 (Encoded String)</label>
+            <textarea id="inputString" rows="5"
+                class="w-full p-4 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out text-base bg-gray-50 resize-none"
+                placeholder="在此粘贴您的 Base64, Hex, URL 或其他编码字符串..."></textarea>
+        </div>
+
+        <!-- 操作按钮区域 -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <button onclick="decode('base64')"
+                class="py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-[1.02]">
+                Base64 解码
+            </button>
+            <button onclick="decode('url')"
+                class="py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-[1.02]">
+                URL 解码
+            </button>
+            <button onclick="decode('hex')"
+                class="py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-[1.02]">
+                Hex 解码
+            </button>
+            <button onclick="clearAll()"
+                class="py-3 px-4 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-[1.02]">
+                清空
+            </button>
+        </div>
+
+        <!-- 输出区域 -->
+        <div class="mb-6">
+            <label for="outputString" class="block text-lg font-medium text-gray-700 mb-2">解码结果 (Decoded Result)</label>
+            <div id="outputContainer" class="relative">
+                <textarea id="outputString" rows="8" readonly
+                    class="w-full p-4 border border-gray-300 rounded-lg bg-gray-100 text-base resize-none focus:outline-none"
+                    placeholder="解码结果将显示在此处..."></textarea>
+                <button onclick="copyToClipboard()" id="copyButton"
+                    class="absolute bottom-2 right-2 p-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-150 text-sm opacity-90 hover:opacity-100">
+                    复制
+                </button>
+            </div>
+        </div>
+
+        <!-- 消息/错误区域 -->
+        <div id="messageBox" class="text-center py-2 px-4 rounded-lg hidden transition duration-300 ease-in-out"></div>
+
+    </div>
+
+    <script>
+        const inputEl = document.getElementById('inputString');
+        const outputEl = document.getElementById('outputString');
+        const messageBox = document.getElementById('messageBox');
+        const copyButton = document.getElementById('copyButton');
+
+        // 显示消息 (成功或错误)
+        function showMessage(text, type = 'success') {
+            messageBox.textContent = text;
+            messageBox.className = 'text-center py-2 px-4 rounded-lg block transition duration-300 ease-in-out';
+            if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'text-green-700');
+            } else if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'text-red-700');
+            }
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Base64 解码实现
+        function decodeBase64(str) {
+            try {
+                // 确保 Base64 字符串长度是 4 的倍数，否则可能会抛出 InvalidCharacterError
+                while (str.length % 4 !== 0) {
+                    str += '=';
+                }
+                return atob(str);
+            } catch (e) {
+                console.error(e);
+                showMessage("Base64 解码失败。请检查输入是否为有效的 Base64 格式。", 'error');
+                return "解码错误: 无效 Base64 格式";
+            }
+        }
+
+        // Hex 解码实现
+        function decodeHex(str) {
+            str = str.replace(/[^0-9a-fA-F]/g, ''); // 移除所有非 Hex 字符
+            if (str.length % 2 !== 0) {
+                showMessage("Hex 字符串长度必须为偶数，请检查输入。", 'error');
+                return "解码错误: Hex 长度为奇数";
+            }
+            let output = '';
+            for (let i = 0; i < str.length; i += 2) {
+                const hex = str.substring(i, i + 2);
+                output += String.fromCharCode(parseInt(hex, 16));
+            }
+            return output;
+        }
+
+        // URL 解码实现
+        function decodeUrl(str) {
+            try {
+                return decodeURIComponent(str.replace(/\+/g, ' '));
+            } catch (e) {
+                console.error(e);
+                showMessage("URL 解码失败。请检查输入是否为有效的 URL 编码。", 'error');
+                return "解码错误: 无效 URL 编码";
+            }
+        }
+
+        // 主要解码函数
+        function decode(method) {
+            const input = inputEl.value.trim();
+            if (!input) {
+                showMessage("请输入需要解码的字符串。", 'error');
+                outputEl.value = '';
+                return;
+            }
+
+            let result = '';
+            switch (method) {
+                case 'base64':
+                    result = decodeBase64(input);
+                    break;
+                case 'url':
+                    result = decodeUrl(input);
+                    break;
+                case 'hex':
+                    result = decodeHex(input);
+                    break;
+                default:
+                    result = "选择的解码方法无效。";
+                    break;
+            }
+
+            outputEl.value = result;
+
+            if (result.startsWith("解码错误")) {
+                // 错误信息已经在具体解码函数中显示
+            } else {
+                showMessage(`使用 ${method.toUpperCase()} 解码成功！`, 'success');
+            }
+        }
+
+        // 清空输入和输出
+        function clearAll() {
+            inputEl.value = '';
+            outputEl.value = '';
+            showMessage("已清空所有内容。", 'success');
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard() {
+            if (!outputEl.value) {
+                showMessage("没有内容可以复制。", 'error');
+                return;
+            }
+
+            // 使用 document.execCommand('copy') 确保在 iFrame 环境中也能工作
+            outputEl.select();
+            outputEl.setSelectionRange(0, 99999); // 针对移动设备
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    copyButton.textContent = '已复制!';
+                    copyButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    copyButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                    setTimeout(() => {
+                        copyButton.textContent = '复制';
+                        copyButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                        copyButton.classList.add('bg-green-500', 'hover:bg-green-600');
+                    }, 1500);
+                    showMessage("解码结果已复制到剪贴板。", 'success');
+                } else {
+                    showMessage("复制失败，请手动复制。", 'error');
+                }
+            } catch (err) {
+                showMessage("复制失败，请手动复制。", 'error');
+            }
+        }
+    </script>
+</body>
+</html>
